@@ -1,4 +1,4 @@
-#![allow(unused)] // FIXME: Remove after public API is set
+#![allow(dead_code)] // FIXME: Remove after public API is set
 
 use std::any::TypeId;
 
