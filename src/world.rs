@@ -5,7 +5,8 @@ use std::{
 
 use crate::{
     storage::{
-        ArchetypeHash, ArchetypeMap, ArchetypeTable, StorageLocation, DEFAULT_ARCHETYPE_HASH,
+        archetype_map::ArchetypeMap, archetype_table::ArchetypeTable, ArchetypeHash,
+        StorageLocation, DEFAULT_ARCHETYPE_HASH,
     },
     Component, ComponentId, EcsResult, EntityId,
 };
@@ -236,6 +237,11 @@ impl<H: EcsHasher> World<H> {
         }
 
         Ok(())
+    }
+
+    /// Removes the component of type `T` from the specified entity.
+    fn remove_component_from_entity<T: Component>(&self, _entity: EntityId) -> Option<T> {
+        todo!()
     }
 }
 

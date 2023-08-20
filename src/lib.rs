@@ -6,7 +6,6 @@ use storage::StorageError;
 use world::WorldError;
 
 mod storage;
-
 mod world;
 
 /// An entity in the ECS.
