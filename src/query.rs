@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, marker::PhantomData, rc::Rc};
 
 use crate::{storage::archetype_table::ArchetypeTable, world::World, Component, ComponentId};
 
@@ -32,7 +32,7 @@ impl QueryBuilder {
     }
 
     /// Builds, runs, and returns the query.
-    pub fn build<'a>(self) -> Query<'a> {
+    pub fn build<'a, Params: QueryParam>(self) -> Query<'a, Params> {
         // Combine all query types (ref and mut)
         let query_types: HashSet<&ComponentId> =
             { self.ref_types.union(&self.mut_types).collect() };
@@ -58,17 +58,57 @@ impl QueryBuilder {
             ref_types: self.ref_types,
             mut_types: self.mut_types,
             archetype_tables: unique_associated_archetypes,
+            _marker: PhantomData,
+        }
+    }
+}
+
+pub struct Query<'a, Params: QueryParam> {
+    world: Rc<RefCell<World>>,
+    ref_types: HashSet<ComponentId>,
+    mut_types: HashSet<ComponentId>,
+    archetype_tables: HashSet<&'a mut ArchetypeTable>,
+    _marker: PhantomData<Params>,
+}
+
+impl<'a, Params: QueryParam> IntoIterator for Query<'a, Params> {
+    type Item = Params;
+
+    type IntoIter = QueryIter<'a, Params>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Self::IntoIter {
+            query: self,
             current_entity: 0,
         }
     }
 }
 
-pub struct Query<'a> {
-    world: Rc<RefCell<World>>,
-    ref_types: HashSet<ComponentId>,
-    mut_types: HashSet<ComponentId>,
-    archetype_tables: HashSet<&'a mut ArchetypeTable>,
+pub struct QueryIter<'a, Params: QueryParam> {
+    query: Query<'a, Params>,
     current_entity: usize,
 }
 
-// impl
+impl<'a, Params: QueryParam> Iterator for QueryIter<'a, Params> {
+    type Item = Params;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
+}
+
+pub trait QueryParam {}
+impl<P: Component> QueryParam for (&P,) {}
+impl<P: Component> QueryParam for (&mut P,) {}
+impl<P1, P2> QueryParam for (&P1, &P2)
+where
+    P1: Component,
+    P2: Component,
+{
+}
+impl<P1, P2> QueryParam for (&mut P1, &mut P2)
+where
+    P1: Component,
+    P2: Component,
+{
+}

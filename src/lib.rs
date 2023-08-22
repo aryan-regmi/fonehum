@@ -8,7 +8,11 @@ mod query;
 mod storage;
 mod world;
 
-pub use {context::Context, ecs::Ecs, query::QueryBuilder};
+pub use {
+    context::Context,
+    ecs::Ecs,
+    query::{Query, QueryBuilder},
+};
 
 /// An entity in the ECS.
 ///
