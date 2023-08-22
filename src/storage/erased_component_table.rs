@@ -97,6 +97,27 @@ impl ErasedComponentTable {
     pub(crate) fn clone_component_type(&self) -> Self {
         (self.clone_component_type)()
     }
+
+    /// Removes the component value for the specified entity.
+    ///
+    /// ## Note
+    /// The `num_entities` can go out of sync since the entire entity is not removed.
+    pub(crate) fn remove_component_value<T: Component>(
+        &mut self,
+        row: usize,
+    ) -> EcsResult<Option<T>> {
+        let component_id = ComponentId::of::<T>();
+
+        let concrete_storage = unsafe {
+            self.as_component_table::<T>()
+                .ok_or_else(|| StorageError::InvalidComponentTable(component_id))?
+        };
+
+        let removed = concrete_storage.remove_component_value(row);
+        self.num_entities -= 1;
+
+        Ok(removed)
+    }
 }
 
 impl std::fmt::Debug for ErasedComponentTable {

@@ -164,16 +164,12 @@ impl ArchetypeTable {
         row: usize,
     ) -> EcsResult<Option<T>> {
         let component_id = ComponentId::of::<T>();
-        let component_table = unsafe {
-            self.component_tables
-                .get_mut(&component_id)
-                .ok_or_else(|| StorageError::InvalidComponentTable(component_id))?
-                .as_component_table::<T>()
-                .ok_or_else(|| StorageError::InvalidComponentTable(component_id))?
-        };
 
-        let removed = component_table.remove_component_value(row);
+        let component_table = self
+            .component_tables
+            .get_mut(&component_id)
+            .ok_or_else(|| StorageError::InvalidComponentTable(component_id))?;
 
-        Ok(removed)
+        component_table.remove_component_value(row)
     }
 }

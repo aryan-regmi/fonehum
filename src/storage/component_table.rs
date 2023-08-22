@@ -45,8 +45,14 @@ impl<T: Component> ComponentTable<T> {
     }
 
     /// Removes the component value for the specified entity.
+    ///
+    /// ## Note
+    /// The `num_entities` can go out of sync since the entire entity is not removed.
     pub(crate) fn remove_component_value(&mut self, row: usize) -> Option<T> {
-        self.components[row].take()
+        self.components[row].take().and_then(|c| {
+            self.num_entities -= 1;
+            Some(c)
+        })
     }
 }
 

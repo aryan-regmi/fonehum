@@ -382,4 +382,55 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn can_remove_component_from_entities() -> EcsResult<()> {
+        let mut world = World::new(DefaultHasher::new());
+
+        {
+            let entity = world.spawn_entity()?;
+            world.add_component_to_entity(entity, Health(20))?;
+            world.add_component_to_entity(entity, Age(20))?;
+            let old_hash = world.entity_map[entity].hash;
+
+            let removed = world
+                .remove_component_from_entity::<Health>(entity)?
+                .unwrap();
+            let new_hash = world.entity_map[entity].hash;
+
+            assert_eq!(removed.0, 20);
+            assert_ne!(old_hash, new_hash);
+        }
+
+        {
+            let entity = world.spawn_entity()?;
+            world.add_component_to_entity(entity, Health(30))?;
+            world.add_component_to_entity(entity, Age(30))?;
+            world.add_component_to_entity(entity, Name("E1"))?;
+            let old_hash = world.entity_map[entity].hash;
+
+            let removed = world.remove_component_from_entity::<Name>(entity)?.unwrap();
+            let new_hash = world.entity_map[entity].hash;
+
+            assert_eq!(removed.0, "E1");
+            assert_ne!(old_hash, new_hash);
+        }
+
+        {
+            let entity = world.spawn_entity()?;
+            world.add_component_to_entity(entity, Age(40))?;
+            world.add_component_to_entity(entity, Name("E2"))?;
+            let old_hash = world.entity_map[entity].hash;
+
+            let removed = world.remove_component_from_entity::<Name>(entity)?.unwrap();
+            let new_hash = world.entity_map[entity].hash;
+
+            assert_eq!(removed.0, "E2");
+            assert_ne!(old_hash, new_hash);
+        }
+
+        assert_eq!(world.num_entities, 3);
+
+        Ok(())
+    }
 }
