@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{world::World, Component, EcsResult, EntityId};
+use crate::{world::World, Component, EcsResult, EntityId, QueryBuilder};
 
 #[derive(Clone)]
 pub struct Context {
@@ -18,6 +18,11 @@ impl Context {
         let entity = self.world.borrow_mut().spawn_entity()?;
 
         Ok(EntityBuilder::new(self.world.clone(), entity))
+    }
+
+    /// Creates a `QueryBuilder` which is used to build a query.
+    pub fn query(&mut self) -> QueryBuilder {
+        QueryBuilder::new(self.world.clone())
     }
 }
 

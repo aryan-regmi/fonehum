@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use crate::{Component, ComponentId, EcsResult};
 
@@ -38,6 +38,11 @@ impl ArchetypeTable {
     /// Returns the number of entities with this archetype.
     pub(crate) fn num_entities(&self) -> usize {
         self.num_entities
+    }
+
+    /// Returns the hash of the archetype.
+    pub(crate) fn get_hash(&self) -> ArchetypeHash {
+        self.hash
     }
 
     /// Adds an entity to the archetype table.
@@ -214,3 +219,17 @@ impl ArchetypeTable {
         Ok(component_table.get_mut(row))
     }
 }
+
+impl PartialEq for ArchetypeTable {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
+    }
+}
+
+impl Hash for ArchetypeTable {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash);
+    }
+}
+
+impl Eq for ArchetypeTable {}

@@ -2,15 +2,13 @@
 
 use std::any::TypeId;
 
-use storage::StorageError;
-use world::WorldError;
-
 mod context;
 mod ecs;
+mod query;
 mod storage;
 mod world;
 
-pub use {context::Context, ecs::Ecs};
+pub use {context::Context, ecs::Ecs, query::QueryBuilder};
 
 /// An entity in the ECS.
 ///
@@ -32,10 +30,10 @@ pub trait System: 'static {
 #[derive(Debug, thiserror::Error)]
 pub enum EcsError {
     #[error("WorldError: {0}")]
-    WorldError(#[from] WorldError),
+    WorldError(#[from] world::WorldError),
 
     #[error("StorageError: {0}")]
-    StorageError(#[from] StorageError),
+    StorageError(#[from] storage::StorageError),
 }
 
 /// Result type returned by the ECS.
