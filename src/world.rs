@@ -1,6 +1,8 @@
 use std::{
+    cell::RefCell,
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
+    rc::Rc,
 };
 
 use crate::{
@@ -52,7 +54,7 @@ struct World<H: EcsHasher = DefaultHasher> {
     entity_map: Vec<StorageLocation>,
 
     /// The hasher used to calculate archetype hashes.
-    hasher: H,
+    hasher: Rc<RefCell<H>>,
 }
 
 impl<H: EcsHasher> World<H> {
@@ -67,7 +69,7 @@ impl<H: EcsHasher> World<H> {
             num_entities: 0,
             archetype_map,
             entity_map: vec![],
-            hasher,
+            hasher: Rc::new(RefCell::new(hasher)),
         }
     }
 
@@ -127,11 +129,11 @@ impl<H: EcsHasher> World<H> {
             if ent_archetype_table.contains_component(component_id) {
                 (ent_archetype_hash, ent_archetype_hash)
             } else {
-                self.hasher.reset();
-                component_id.hash(&mut self.hasher);
+                self.hasher.borrow_mut().reset();
+                component_id.hash(&mut *self.hasher.borrow_mut());
                 (
                     ent_archetype_hash,
-                    ent_archetype_hash ^ self.hasher.finish(),
+                    ent_archetype_hash ^ self.hasher.borrow().finish(),
                 )
             }
         };
@@ -219,13 +221,9 @@ impl<H: EcsHasher> World<H> {
                 ent_archetype_table.move_entity(&mut new_archetype_table, src_row, dst_row)?;
             }
 
-            // NOTE: The assert might be unnecessary: remove?
-            //
             // Add the component to the new component table and add new archetype table to the
             // world
-            assert!(new_archetype_table
-                .update_component_value(0, component)?
-                .is_none());
+            new_archetype_table.update_component_value(0, component)?;
             self.archetype_map
                 .add_archetype_table(new_hash, new_archetype_table);
 
@@ -240,8 +238,88 @@ impl<H: EcsHasher> World<H> {
     }
 
     /// Removes the component of type `T` from the specified entity.
-    fn remove_component_from_entity<T: Component>(&self, _entity: EntityId) -> Option<T> {
-        todo!()
+    fn remove_component_from_entity<T: Component>(
+        &mut self,
+        entity: EntityId,
+    ) -> EcsResult<Option<T>> {
+        let component_id = ComponentId::of::<T>();
+
+        let ent_archetype_table = self
+            .archetype_table_by_entity_mut(entity)
+            .ok_or_else(|| WorldError::InvalidEntityArchetype(entity))?;
+
+        // If entity's archetype table has component table for `T`, then remove the component and
+        // update the entity's archetype
+        if ent_archetype_table.contains_component(component_id) {
+            // XOR the entity's hash with the hash of the component type to get the new hash for the entity
+            let new_archetype_hash = {
+                self.hasher.borrow_mut().reset();
+                component_id.hash(&mut *self.hasher.borrow_mut());
+                self.entity_map[entity].hash ^ self.hasher.borrow().finish()
+            };
+
+            // If new archetype exists move entity to it
+            if self.archetype_map.table_exists(new_archetype_hash) {
+                let new_archetype_table = self
+                    .archetype_map
+                    .get_archetype_table_mut(new_archetype_hash)
+                    .ok_or_else(|| WorldError::InvalidArchetypeHash(new_archetype_hash))?;
+
+                let src_row = self.entity_map[entity].row;
+                let dst_row = new_archetype_table.num_entities();
+
+                // Remove the component value from the entity's archetype table
+                let removed_component = ent_archetype_table.remove_component_value::<T>(src_row)?;
+
+                new_archetype_table.add_entity()?;
+                ent_archetype_table.move_entity(new_archetype_table, src_row, dst_row)?;
+
+                // Update entity map
+                self.entity_map[entity] = StorageLocation {
+                    hash: new_archetype_hash,
+                    row: dst_row,
+                };
+
+                return Ok(removed_component);
+            }
+
+            // Create new archetype if it doesn't exist and move entity to it
+            {
+                let mut new_archetype_table = ArchetypeTable::new(new_archetype_hash);
+
+                // Create new component tables for all of the entity's existing components (except
+                // the one being removed)
+                let ent_archetype_table = self
+                    .archetype_table_by_entity_mut(entity)
+                    .ok_or_else(|| WorldError::InvalidEntityArchetype(entity))?;
+                new_archetype_table
+                    .new_component_tables_with(ent_archetype_table, |id| *id != component_id)?;
+
+                let src_row = self.entity_map[entity].row;
+                let dst_row = 0;
+
+                // Remove the component value from the entity's archetype table
+                let removed_component = ent_archetype_table.remove_component_value::<T>(src_row)?;
+
+                new_archetype_table.add_entity()?;
+                ent_archetype_table.move_entity(&mut new_archetype_table, src_row, dst_row)?;
+
+                // Add new archetype table to the world
+                self.archetype_map
+                    .add_archetype_table(new_archetype_hash, new_archetype_table);
+
+                // Update entity map
+                self.entity_map[entity] = StorageLocation {
+                    hash: new_archetype_hash,
+                    row: dst_row,
+                };
+
+                return Ok(removed_component);
+            }
+        }
+
+        // The entity didn't have a component of type `T` associated with it
+        Ok(None)
     }
 }
 

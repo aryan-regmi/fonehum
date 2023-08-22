@@ -43,6 +43,11 @@ impl<T: Component> ComponentTable<T> {
             Some(r)
         })
     }
+
+    /// Removes the component value for the specified entity.
+    pub(crate) fn remove_component_value(&mut self, row: usize) -> Option<T> {
+        self.components[row].take()
+    }
 }
 
 /// Represents a type that can store component values.

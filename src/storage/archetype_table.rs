@@ -95,15 +95,13 @@ impl ArchetypeTable {
         src_row: usize,
         dst_row: usize,
     ) -> EcsResult<()> {
-        // Move component from each component table to `other`
+        // Move component from each component table to `other` (if other has the specified
+        // component table)
         for (component_id, old_component_table) in &mut self.component_tables {
-            let other_component_table = other
-                .component_tables
-                .get_mut(component_id)
-                .ok_or_else(|| StorageError::InvalidComponentTable(*component_id))?;
-
-            unsafe {
-                old_component_table.move_entity(other_component_table, src_row, dst_row)?;
+            if let Some(other_component_table) = other.component_tables.get_mut(component_id) {
+                unsafe {
+                    old_component_table.move_entity(other_component_table, src_row, dst_row)?;
+                }
             }
         }
 
@@ -132,8 +130,50 @@ impl ArchetypeTable {
         Ok(())
     }
 
+    /// For each component table in `other`, adds a new (empty) component table to `self` of the same
+    /// underlying component type if the predicate returns `true` for the component id.
+    pub(crate) fn new_component_tables_with<F>(
+        &mut self,
+        other: &Self,
+        predicate: F,
+    ) -> EcsResult<()>
+    where
+        F: Fn(&ComponentId) -> bool,
+    {
+        for (component_id, component_table) in &other.component_tables {
+            if predicate(component_id) {
+                self.add_component_table(*component_id, component_table.clone_component_type());
+            }
+        }
+
+        Ok(())
+    }
+
     /// Adds a new, empty component table of type `T` to the archetype table.
     pub(crate) fn add_new_component_table<T: Component>(&mut self) {
         self.add_component_table(ComponentId::of::<T>(), ErasedComponentTable::new::<T>());
+    }
+
+    /// Removes the component (of type `T`) from the component table for the specified entity.
+    ///
+    /// ## Note
+    /// This can cause the component table's `num_entities` to go out of sync and should be used
+    /// with caution.
+    pub(crate) fn remove_component_value<T: Component>(
+        &mut self,
+        row: usize,
+    ) -> EcsResult<Option<T>> {
+        let component_id = ComponentId::of::<T>();
+        let component_table = unsafe {
+            self.component_tables
+                .get_mut(&component_id)
+                .ok_or_else(|| StorageError::InvalidComponentTable(component_id))?
+                .as_component_table::<T>()
+                .ok_or_else(|| StorageError::InvalidComponentTable(component_id))?
+        };
+
+        let removed = component_table.remove_component_value(row);
+
+        Ok(removed)
     }
 }
