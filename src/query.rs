@@ -58,6 +58,7 @@ impl QueryBuilder {
 
         Query {
             world: self.world,
+            num_entities: 0,
             // ref_types: self.ref_types,
             // mut_types: self.mut_types,
             archetype_tables: unique_associated_archetypes,
@@ -68,6 +69,7 @@ impl QueryBuilder {
 
 pub struct Query<'a, Params: QueryParam> {
     world: Rc<RefCell<World>>,
+    num_entities: usize,
     archetype_tables: HashSet<&'a mut ArchetypeTable>,
     _marker: PhantomData<Params>,
 }
@@ -75,10 +77,12 @@ pub struct Query<'a, Params: QueryParam> {
 impl<'a, Params: QueryParam> Query<'a, Params> {
     pub(crate) fn new(
         world: Rc<RefCell<World>>,
+        num_entities: usize,
         archetype_tables: HashSet<&'a mut ArchetypeTable>,
     ) -> Self {
         Self {
             world,
+            num_entities,
             archetype_tables,
             _marker: PhantomData,
         }
@@ -107,6 +111,11 @@ impl<'a, Params: QueryParam> Iterator for QueryIter<'a, Params> {
     type Item = Params;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.current_entity >= self.query.num_entities {
+            return None;
+        }
+
+        self.current_entity += 1;
         todo!()
     }
 }

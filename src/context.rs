@@ -26,27 +26,31 @@ impl Context {
     /// Creates a `QueryBuilder` which is used to build a query.
     pub fn query<Params: QueryParam>(&mut self) -> Query<Params> {
         // Combine all query types (ref and mut)
-        let ref_types = Params::ref_types();
-        let mut_types = Params::mut_types();
-        let query_types: HashSet<&ComponentId> = ref_types.union(&mut_types).collect();
+        let query_types: HashSet<ComponentId> = Params::typeids();
 
         // Grab all associated archetype tables for each queried type and keep only unique
         // tables
         let mut unique_associated_archetypes = HashSet::with_capacity(query_types.len());
+        let mut total_entities = 0;
         for component_id in query_types {
             let mut world = self.world.borrow_mut();
-            let associated_archetypes = world.get_associated_archetypes_mut(*component_id);
+            let associated_archetypes = world.get_associated_archetypes_mut(component_id);
             unique_associated_archetypes = unique_associated_archetypes
                 .union(&associated_archetypes)
                 .map(|a| unsafe {
                     let a = (a as *const &mut ArchetypeTable) as *mut *mut ArchetypeTable;
+                    total_entities += (**a).num_entities();
                     (*a).as_mut()
                         .expect("Unable to get unique set of associated archetype tables")
                 })
                 .collect::<HashSet<&mut ArchetypeTable>>();
         }
 
-        Query::new(self.world.clone(), unique_associated_archetypes)
+        Query::new(
+            self.world.clone(),
+            total_entities,
+            unique_associated_archetypes,
+        )
     }
 }
 
