@@ -24,9 +24,8 @@ fn can_query_entities() -> EcsResult<()> {
             Ok(())
         })
         .add_system(|mut ctx: Context| {
-            let query: Query<(&Health, &Age)> =
-                ctx.query().with::<Health>().with_mut::<Age>().build();
-            for (h, a) in query {
+            let query: Query<(&Health, &mut Age)> = ctx.query();
+            for (_h, _a) in query {
                 // let health = entity.get::<Health>();
                 // let age = entity.get_mut::<Age>();
             }

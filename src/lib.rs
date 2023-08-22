@@ -5,6 +5,7 @@ use std::any::TypeId;
 mod context;
 mod ecs;
 mod query;
+mod query_params;
 mod storage;
 mod world;
 
@@ -12,6 +13,7 @@ pub use {
     context::Context,
     ecs::Ecs,
     query::{Query, QueryBuilder},
+    query_params::QueryParam,
 };
 
 /// An entity in the ECS.

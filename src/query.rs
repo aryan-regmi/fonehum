@@ -1,6 +1,9 @@
 use std::{cell::RefCell, collections::HashSet, marker::PhantomData, rc::Rc};
 
-use crate::{storage::archetype_table::ArchetypeTable, world::World, Component, ComponentId};
+use crate::{
+    query_params::QueryParam, storage::archetype_table::ArchetypeTable, world::World, Component,
+    ComponentId,
+};
 
 /// Builds a query  by specifying the components to query for.
 pub struct QueryBuilder {
@@ -55,8 +58,8 @@ impl QueryBuilder {
 
         Query {
             world: self.world,
-            ref_types: self.ref_types,
-            mut_types: self.mut_types,
+            // ref_types: self.ref_types,
+            // mut_types: self.mut_types,
             archetype_tables: unique_associated_archetypes,
             _marker: PhantomData,
         }
@@ -65,10 +68,21 @@ impl QueryBuilder {
 
 pub struct Query<'a, Params: QueryParam> {
     world: Rc<RefCell<World>>,
-    ref_types: HashSet<ComponentId>,
-    mut_types: HashSet<ComponentId>,
     archetype_tables: HashSet<&'a mut ArchetypeTable>,
     _marker: PhantomData<Params>,
+}
+
+impl<'a, Params: QueryParam> Query<'a, Params> {
+    pub(crate) fn new(
+        world: Rc<RefCell<World>>,
+        archetype_tables: HashSet<&'a mut ArchetypeTable>,
+    ) -> Self {
+        Self {
+            world,
+            archetype_tables,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<'a, Params: QueryParam> IntoIterator for Query<'a, Params> {
@@ -95,20 +109,4 @@ impl<'a, Params: QueryParam> Iterator for QueryIter<'a, Params> {
     fn next(&mut self) -> Option<Self::Item> {
         todo!()
     }
-}
-
-pub trait QueryParam {}
-impl<P: Component> QueryParam for (&P,) {}
-impl<P: Component> QueryParam for (&mut P,) {}
-impl<P1, P2> QueryParam for (&P1, &P2)
-where
-    P1: Component,
-    P2: Component,
-{
-}
-impl<P1, P2> QueryParam for (&mut P1, &mut P2)
-where
-    P1: Component,
-    P2: Component,
-{
 }

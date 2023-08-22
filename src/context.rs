@@ -1,6 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
-use crate::{world::World, Component, EcsResult, EntityId, QueryBuilder};
+use crate::{
+    storage::archetype_table::ArchetypeTable, world::World, Component, ComponentId, EcsResult,
+    EntityId, Query, QueryParam,
+};
 
 #[derive(Clone)]
 pub struct Context {
@@ -21,8 +24,29 @@ impl Context {
     }
 
     /// Creates a `QueryBuilder` which is used to build a query.
-    pub fn query(&mut self) -> QueryBuilder {
-        QueryBuilder::new(self.world.clone())
+    pub fn query<Params: QueryParam>(&mut self) -> Query<Params> {
+        // Combine all query types (ref and mut)
+        let ref_types = Params::ref_types();
+        let mut_types = Params::mut_types();
+        let query_types: HashSet<&ComponentId> = ref_types.union(&mut_types).collect();
+
+        // Grab all associated archetype tables for each queried type and keep only unique
+        // tables
+        let mut unique_associated_archetypes = HashSet::with_capacity(query_types.len());
+        for component_id in query_types {
+            let mut world = self.world.borrow_mut();
+            let associated_archetypes = world.get_associated_archetypes_mut(*component_id);
+            unique_associated_archetypes = unique_associated_archetypes
+                .union(&associated_archetypes)
+                .map(|a| unsafe {
+                    let a = (a as *const &mut ArchetypeTable) as *mut *mut ArchetypeTable;
+                    (*a).as_mut()
+                        .expect("Unable to get unique set of associated archetype tables")
+                })
+                .collect::<HashSet<&mut ArchetypeTable>>();
+        }
+
+        Query::new(self.world.clone(), unique_associated_archetypes)
     }
 }
 
