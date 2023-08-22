@@ -5,8 +5,12 @@ use std::any::TypeId;
 use storage::StorageError;
 use world::WorldError;
 
+mod context;
+mod ecs;
 mod storage;
 mod world;
+
+pub use {context::Context, ecs::Ecs};
 
 /// An entity in the ECS.
 ///
@@ -18,6 +22,11 @@ pub(crate) type ComponentId = TypeId;
 
 /// A component in the ECS.
 pub trait Component: 'static {}
+
+/// A system to be run by the ECS.
+pub trait System: 'static {
+    fn run(&mut self, ctx: Context) -> EcsResult<()>;
+}
 
 /// Possible errors returned from the ECS.
 #[derive(Debug, thiserror::Error)]

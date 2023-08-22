@@ -25,7 +25,7 @@ pub enum WorldError {
     InvalidArchetypeHash(ArchetypeHash),
 }
 
-trait EcsHasher: Hasher {
+pub(crate) trait EcsHasher: Hasher {
     fn new() -> Self;
 
     fn reset(&mut self);
@@ -41,9 +41,12 @@ impl EcsHasher for DefaultHasher {
     }
 }
 
+// TODO: Add component_id_map that maps component id to hashes of all archetypes that have that component
+// component_id_map = HashMap<ComponentId, Vec<ArchetypeHash>>
+//
 /// Contains the entities and components of the ECS.
 #[derive(Debug)]
-struct World<H: EcsHasher = DefaultHasher> {
+pub(crate) struct World<H: EcsHasher = DefaultHasher> {
     /// Total number of entities in the ECS.
     num_entities: usize,
 
@@ -59,7 +62,7 @@ struct World<H: EcsHasher = DefaultHasher> {
 
 impl<H: EcsHasher> World<H> {
     /// Creates a new world.
-    fn new(hasher: H) -> Self {
+    pub(crate) fn new(hasher: H) -> Self {
         // Create table for default archetype
         let default_archetype_table = ArchetypeTable::new(DEFAULT_ARCHETYPE_HASH);
         let mut archetype_map = ArchetypeMap::new();
@@ -74,7 +77,7 @@ impl<H: EcsHasher> World<H> {
     }
 
     /// Adds an entity to the world.
-    fn spawn_entity(&mut self) -> EcsResult<EntityId> {
+    pub(crate) fn spawn_entity(&mut self) -> EcsResult<EntityId> {
         let entity = self.num_entities;
         self.num_entities += 1;
 
@@ -108,7 +111,7 @@ impl<H: EcsHasher> World<H> {
     }
 
     /// Adds a component to the specified entity.
-    fn add_component_to_entity<T: Component>(
+    pub(crate) fn add_component_to_entity<T: Component>(
         &mut self,
         entity: EntityId,
         component: T,
@@ -238,7 +241,7 @@ impl<H: EcsHasher> World<H> {
     }
 
     /// Removes the component of type `T` from the specified entity.
-    fn remove_component_from_entity<T: Component>(
+    pub(crate) fn remove_component_from_entity<T: Component>(
         &mut self,
         entity: EntityId,
     ) -> EcsResult<Option<T>> {
@@ -323,7 +326,7 @@ impl<H: EcsHasher> World<H> {
     }
 
     /// Gets an immutable reference to the component value (of type `T`) for the specified entity.
-    fn get_component<T: Component>(&self, entity: EntityId) -> EcsResult<Option<&T>> {
+    pub(crate) fn get_component<T: Component>(&self, entity: EntityId) -> EcsResult<Option<&T>> {
         let archetype_table = self
             .archetype_table_by_entity(entity)
             .ok_or_else(|| WorldError::InvalidEntityArchetype(entity))?;
@@ -332,7 +335,10 @@ impl<H: EcsHasher> World<H> {
     }
 
     /// Gets a mutable reference to the component value (of type `T`) for the specified entity.
-    fn get_component_mut<T: Component>(&mut self, entity: EntityId) -> EcsResult<Option<&mut T>> {
+    pub(crate) fn get_component_mut<T: Component>(
+        &mut self,
+        entity: EntityId,
+    ) -> EcsResult<Option<&mut T>> {
         let archetype_table = self
             .archetype_table_by_entity_mut(entity)
             .ok_or_else(|| WorldError::InvalidEntityArchetype(entity))?;
