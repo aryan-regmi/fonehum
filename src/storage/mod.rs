@@ -25,6 +25,9 @@ pub enum StorageError {
 
     #[error("Unable to cast erased component table as component table of type {0:?}")]
     FailedConcreteCast(ComponentId),
+
+    #[error("No component was found with the type id of {0:?}")]
+    ComponentNotFound(ComponentId),
 }
 
 /// The location of an entity in an archetype table.

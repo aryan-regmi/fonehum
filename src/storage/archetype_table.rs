@@ -172,4 +172,45 @@ impl ArchetypeTable {
 
         component_table.remove_component_value(row)
     }
+
+    /// Gets an immutable reference to the component value (of component type `T`) for the specified entity.
+    pub(crate) fn get_component<T: Component>(&self, row: usize) -> EcsResult<Option<&T>> {
+        let component_table = self
+            .component_tables
+            .get(&ComponentId::of::<T>())
+            .map(|table| unsafe {
+                let table = ((&**table as *const ErasedComponentTable)
+                    as *mut ErasedComponentTable)
+                    .as_mut()
+                    .expect("The pointer to the erased component table was NULL".into());
+                table
+                    .as_component_table::<T>()
+                    .expect("Unable to cast erased component table to concrete type")
+            })
+            .ok_or_else(|| StorageError::InvalidComponentTable(ComponentId::of::<T>()))?;
+
+        Ok(component_table.get(row))
+    }
+
+    /// Gets a mutable reference to the component value (of component type `T`) for the specified entity.
+    pub(crate) fn get_component_mut<T: Component>(
+        &mut self,
+        row: usize,
+    ) -> EcsResult<Option<&mut T>> {
+        let component_table = self
+            .component_tables
+            .get_mut(&ComponentId::of::<T>())
+            .map(|table| unsafe {
+                let table = ((&**table as *const ErasedComponentTable)
+                    as *mut ErasedComponentTable)
+                    .as_mut()
+                    .expect("The pointer to the erased component table was NULL".into());
+                table
+                    .as_component_table::<T>()
+                    .expect("Unable to cast erased component table to concrete type")
+            })
+            .ok_or_else(|| StorageError::InvalidComponentTable(ComponentId::of::<T>()))?;
+
+        Ok(component_table.get_mut(row))
+    }
 }

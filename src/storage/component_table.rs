@@ -54,6 +54,16 @@ impl<T: Component> ComponentTable<T> {
             Some(c)
         })
     }
+
+    /// Gets an immutable reference to the component value for the specified entity.
+    pub(crate) fn get(&self, row: usize) -> Option<&T> {
+        self.components.get(row)?.as_ref()
+    }
+
+    /// Gets a mutable reference to the component value for the specified entity.
+    pub(crate) fn get_mut(&mut self, row: usize) -> Option<&mut T> {
+        self.components.get_mut(row)?.as_mut()
+    }
 }
 
 /// Represents a type that can store component values.

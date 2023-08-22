@@ -321,6 +321,24 @@ impl<H: EcsHasher> World<H> {
         // The entity didn't have a component of type `T` associated with it
         Ok(None)
     }
+
+    /// Gets an immutable reference to the component value (of type `T`) for the specified entity.
+    fn get_component<T: Component>(&self, entity: EntityId) -> EcsResult<Option<&T>> {
+        let archetype_table = self
+            .archetype_table_by_entity(entity)
+            .ok_or_else(|| WorldError::InvalidEntityArchetype(entity))?;
+
+        archetype_table.get_component::<T>(self.entity_map[entity].row)
+    }
+
+    /// Gets a mutable reference to the component value (of type `T`) for the specified entity.
+    fn get_component_mut<T: Component>(&mut self, entity: EntityId) -> EcsResult<Option<&mut T>> {
+        let archetype_table = self
+            .archetype_table_by_entity_mut(entity)
+            .ok_or_else(|| WorldError::InvalidEntityArchetype(entity))?;
+
+        archetype_table.get_component_mut::<T>(self.entity_map[entity].row)
+    }
 }
 
 #[cfg(test)]
@@ -430,6 +448,26 @@ mod tests {
         }
 
         assert_eq!(world.num_entities, 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn can_get_component_for_entity() -> EcsResult<()> {
+        let mut world = World::new(DefaultHasher::new());
+
+        let entity = world.spawn_entity()?;
+        world.add_component_to_entity(entity, Health(100))?;
+        world.add_component_to_entity(entity, Age(25))?;
+
+        let health = world.get_component::<Health>(entity)?.unwrap();
+        assert_eq!(health.0, 100);
+
+        let age = world.get_component_mut::<Age>(entity)?.unwrap();
+        assert_eq!(age.0, 25);
+
+        age.0 = 200;
+        assert_eq!(world.get_component::<Age>(entity)?.unwrap().0, 200);
 
         Ok(())
     }
