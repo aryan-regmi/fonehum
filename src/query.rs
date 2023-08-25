@@ -1,19 +1,20 @@
-use std::{cell::RefCell, marker::PhantomData, mem::transmute_copy, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 use crate::{query_params::QueryParam, storage::archetype_table::ArchetypeTable, world::World};
 
 pub struct Query<'a, Params: QueryParam<'a>> {
     world: Rc<RefCell<World>>,
     num_entities: usize,
-    archetype_tables: Vec<&'a mut ArchetypeTable>,
+    archetype_tables: Vec<&'a mut Box<ArchetypeTable>>,
     _marker: PhantomData<Params>,
 }
 
 impl<'a, Params: QueryParam<'a>> Query<'a, Params> {
+    /// Creates a new query.
     pub(crate) fn new(
         world: Rc<RefCell<World>>,
         num_entities: usize,
-        archetype_tables: Vec<&'a mut ArchetypeTable>,
+        archetype_tables: Vec<&'a mut Box<ArchetypeTable>>,
     ) -> Self {
         Self {
             world,
@@ -23,6 +24,10 @@ impl<'a, Params: QueryParam<'a>> Query<'a, Params> {
         }
     }
 
+    /// Gets a single value from the query.
+    ///
+    /// ## Panics
+    /// This will panic if the query contains more than one entity.
     pub fn single(self) -> Params::ResultType {
         if self.num_entities != 1 {
             panic!("Called `single` on query with more (or less) than 1 item")
@@ -31,6 +36,7 @@ impl<'a, Params: QueryParam<'a>> Query<'a, Params> {
         self.into_iter().next().unwrap()
     }
 
+    /// Gets the number of entities in the query.
     pub fn num_entities(&self) -> usize {
         self.num_entities
     }
@@ -44,7 +50,6 @@ impl<'a, Params: QueryParam<'a>> IntoIterator for Query<'a, Params> {
     fn into_iter(self) -> Self::IntoIter {
         Self::IntoIter {
             query: self,
-            current_entity: 0,
             archetype_info: ArchetypeInfo {
                 table_idx: 0,
                 entity_idx: 0,
@@ -54,25 +59,22 @@ impl<'a, Params: QueryParam<'a>> IntoIterator for Query<'a, Params> {
 }
 
 #[derive(Debug)]
+/// Keeps track of the archetype and the entity during iteration.
 struct ArchetypeInfo {
     table_idx: usize,
     entity_idx: usize,
 }
 
+/// An iterator over `Query`.
 pub struct QueryIter<'a, Params: QueryParam<'a>> {
     query: Query<'a, Params>,
-    current_entity: usize,
     archetype_info: ArchetypeInfo,
 }
 
-impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
+impl<'a, 'b, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
     type Item = Params::ResultType;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current_entity >= self.query.num_entities {
-            return None;
-        }
-
         use crate::query_params::QueryParamType::*;
         match Params::param_type() {
             Type1 => {
@@ -101,7 +103,7 @@ impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                         .expect("Unable to copy component value")
                 };
 
-                self.current_entity += 1;
+                // self.current_entity += 1;
                 Some(Params::result_from_components(
                     component,
                     Params::empty_component2(),
@@ -125,6 +127,7 @@ impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                 let component1 = archetype_table
                     .get_component::<Params::Type1>(self.archetype_info.entity_idx)
                     .ok()??;
+                // dbg!(&archetype_table);
                 let component2 = archetype_table
                     .get_component::<Params::Type2>(self.archetype_info.entity_idx)
                     .ok()??;
@@ -141,7 +144,7 @@ impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                     )
                 };
 
-                self.current_entity += 1;
+                // self.current_entity += 1;
 
                 Some(Params::result_from_components(component1, component2))
             }

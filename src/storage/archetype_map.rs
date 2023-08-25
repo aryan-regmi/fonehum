@@ -23,10 +23,10 @@ impl ArchetypeMap {
     }
 
     /// Gets a mutable reference to the archetype table with the specified hash.
-    pub(crate) fn get_archetype_table_mut(
+    pub(crate) fn get_archetype_table_mut<'a>(
         &self,
         hash: ArchetypeHash,
-    ) -> Option<&mut Box<ArchetypeTable>> {
+    ) -> Option<&'a mut Box<ArchetypeTable>> {
         let this = unsafe { (self as *const ArchetypeMap).cast_mut().as_mut()? };
         this.0.get_mut(&hash)
     }

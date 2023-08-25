@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    collections::{hash_map::DefaultHasher, HashMap, HashSet},
+    collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
     rc::Rc,
 };
@@ -25,7 +25,7 @@ pub enum WorldError {
     InvalidArchetypeHash(ArchetypeHash),
 }
 
-pub(crate) trait EcsHasher: Hasher {
+pub trait EcsHasher: Hasher {
     fn new() -> Self;
 
     fn reset(&mut self);
@@ -41,6 +41,8 @@ impl EcsHasher for DefaultHasher {
     }
 }
 
+type ComponentHash = ArchetypeHash;
+
 // TODO: Add component_id_map that maps component id to hashes of all archetypes that have that component
 // component_id_map = HashMap<ComponentId, Vec<ArchetypeHash>>
 //
@@ -51,13 +53,14 @@ pub(crate) struct World<H: EcsHasher = DefaultHasher> {
     num_entities: usize,
 
     /// Maps archetype hashes to their corresponding tables.
-    archetype_map: ArchetypeMap,
+    pub(crate) archetype_map: ArchetypeMap,
 
     /// Maps entities to their positions in an archetype table.
     entity_map: Vec<StorageLocation>,
 
-    /// Maps component types/ids to hashes of all archetype that have that component.
-    pub(crate) associated_archetype_map: HashMap<ComponentId, Vec<ArchetypeHash>>,
+    /// Maps components/groups of components to hashes of all archetype that have that
+    /// component/subgroup.
+    pub(crate) associated_archetype_map: HashMap<ComponentHash, Vec<ArchetypeHash>>,
 
     /// The hasher used to calculate archetype hashes.
     hasher: Rc<RefCell<H>>,
@@ -241,10 +244,23 @@ impl<H: EcsHasher> World<H> {
             };
 
             // Update associated archetypes
-            self.add_associated_archetype(component_id, new_hash);
+            let component_hash = self.get_component_hash(&[component_id]);
+            self.add_associated_archetype(component_hash, new_hash);
         }
 
         Ok(())
+    }
+
+    pub(crate) fn get_component_hash(&mut self, component_ids: &[ComponentId]) -> ComponentHash {
+        let mut hash = DEFAULT_ARCHETYPE_HASH;
+
+        for component_id in component_ids {
+            self.hasher.borrow_mut().reset();
+            component_id.hash(&mut *self.hasher.borrow_mut());
+            hash ^= self.hasher.borrow().finish();
+        }
+
+        hash
     }
 
     /// Removes the component of type `T` from the specified entity.
@@ -353,57 +369,28 @@ impl<H: EcsHasher> World<H> {
         archetype_table.get_component_mut::<T>(self.entity_map[entity].row)
     }
 
-    /// Gets a vector of immutable references to the associated archetypes for the specified
-    /// component type.
+    /// Gets a vector of hashes to the associated archetypes for the specified
+    /// component hash.
     pub(crate) fn get_associated_archetypes(
         &self,
-        component_id: ComponentId,
-    ) -> HashSet<&ArchetypeTable> {
-        if let Some(associated_archetype_hashes) = self.associated_archetype_map.get(&component_id)
-        {
-            associated_archetype_hashes
-                .iter()
-                .map(|h| {
-                    self.archetype_map
-                        .get_archetype_table(*h)
-                        .expect("Unable to get associated archetype table")
-                        .as_ref()
-                })
-                .collect::<HashSet<_>>()
-        } else {
-            HashSet::new()
-        }
-    }
-
-    /// Gets a vector of mutable references to the associated archetypes for the specified
-    /// component type.
-    pub(crate) fn get_associated_archetypes_mut(
-        &mut self,
-        component_id: ComponentId,
-    ) -> HashSet<&mut ArchetypeTable> {
+        component_hash: ComponentHash,
+    ) -> Option<Vec<u64>> {
         if let Some(associated_archetype_hashes) =
-            self.associated_archetype_map.get_mut(&component_id)
+            self.associated_archetype_map.get(&component_hash)
         {
-            associated_archetype_hashes
-                .iter_mut()
-                .map(|h| {
-                    self.archetype_map
-                        .get_archetype_table_mut(*h)
-                        .expect("Unable to get associated archetype table")
-                        .as_mut()
-                })
-                .collect::<HashSet<_>>()
-        } else {
-            HashSet::new()
+            return Some(associated_archetype_hashes.clone());
         }
+
+        None
     }
 
     pub(crate) fn add_associated_archetype(
         &mut self,
-        component_id: ComponentId,
+        component_hash: ComponentHash,
         archetype_hash: ArchetypeHash,
     ) {
-        if let Some(associated_archetypes) = self.associated_archetype_map.get_mut(&component_id) {
+        if let Some(associated_archetypes) = self.associated_archetype_map.get_mut(&component_hash)
+        {
             if *associated_archetypes.last().unwrap() != archetype_hash {
                 associated_archetypes.push(archetype_hash);
                 return;
@@ -412,7 +399,7 @@ impl<H: EcsHasher> World<H> {
 
         let associated_archetypes = vec![archetype_hash];
         self.associated_archetype_map
-            .insert(component_id, associated_archetypes);
+            .insert(component_hash, associated_archetypes);
     }
 
     pub(crate) fn get_entity_archetype_hash(&self, entity: EntityId) -> ArchetypeHash {

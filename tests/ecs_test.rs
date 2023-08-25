@@ -85,5 +85,6 @@ fn can_query_entities() -> EcsResult<()> {
             Ok(())
         })
         .add_system(query_system1)
+        // .add_system(query_system2)
         .run()
 }

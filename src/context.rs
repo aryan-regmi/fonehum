@@ -1,19 +1,27 @@
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
+use std::{
+    cell::{RefCell, RefMut},
+    collections::hash_map::DefaultHasher,
+    rc::Rc,
+};
 
 use crate::{
-    storage::archetype_table::ArchetypeTable, world::World, Component, ComponentId, EcsResult,
-    EntityId, Query, QueryParam,
+    world::{EcsHasher, World},
+    Component, ComponentId, EcsResult, EntityId, Query, QueryParam,
 };
 
 #[derive(Clone)]
-pub struct Context {
+pub struct Context<H: EcsHasher = DefaultHasher> {
     world: Rc<RefCell<World>>,
+    hasher: H,
 }
 
-impl Context {
+impl<H: EcsHasher> Context<H> {
     /// Creates a new context.
     pub(crate) fn new(world: Rc<RefCell<World>>) -> Self {
-        Self { world }
+        Self {
+            world,
+            hasher: H::new(),
+        }
     }
 
     /// Creates an `EntityBuilder` which is used to spawn an entity.
@@ -25,41 +33,43 @@ impl Context {
 
     /// Creates a `QueryBuilder` which is used to build a query.
     pub fn query<'a, Params: QueryParam<'a>>(&'a mut self) -> Query<Params> {
-        let query_types: Vec<ComponentId> = Params::typeids();
+        // Get hash of all queried components combined
+        let query_hash = self
+            .world
+            .borrow_mut()
+            .get_component_hash(&Params::typeids());
 
-        // Grab all associated archetype tables for each queried type and keep only unique
-        // tables
-        let mut unique_associated_archetypes = HashSet::with_capacity(query_types.len());
-        for component_id in query_types {
-            let mut world = self.world.borrow_mut();
-            let associated_archetypes = world.get_associated_archetypes_mut(component_id);
-            unique_associated_archetypes = unique_associated_archetypes
-                .union(&associated_archetypes)
-                .map(|a| unsafe {
-                    let a = (a as *const &mut ArchetypeTable) as *mut *mut ArchetypeTable;
-                    (*a).as_mut()
-                        .expect("Unable to get unique set of associated archetype tables")
-                })
-                .collect::<HashSet<&mut ArchetypeTable>>();
-        }
-        let mut unique_associated_archetypes =
-            unique_associated_archetypes.drain().collect::<Vec<_>>();
-        let total_entities = if unique_associated_archetypes.len() != 0 {
-            unique_associated_archetypes
-                .iter_mut()
-                .fold(0, |mut acc, at| {
-                    acc += at.num_entities();
-                    acc
-                })
-        } else {
-            0
-        };
+        // Get all associated archetype tables for the queried type
+        let world: RefMut<'a, World> = self.world.borrow_mut();
+        let mut associated_archetypes_hashes = world.get_associated_archetypes(query_hash);
+        let associated_archetypes =
+            if let Some(associated_archetypes_hashes) = &mut associated_archetypes_hashes {
+                // Get only unique archteypes
+                associated_archetypes_hashes.sort();
+                associated_archetypes_hashes.dedup();
 
-        Query::new(
-            self.world.clone(),
-            total_entities,
-            unique_associated_archetypes,
-        )
+                associated_archetypes_hashes
+                    .iter()
+                    .map(|h| {
+                        world
+                            .archetype_map
+                            .get_archetype_table_mut(*h)
+                            .expect("Unable to get associated archetype table")
+                    })
+                    .collect::<Vec<_>>()
+            } else {
+                vec![world
+                    .archetype_map
+                    .get_archetype_table_mut(query_hash)
+                    .expect("Unable to get associated archetype table")]
+            };
+
+        let total_entities = associated_archetypes.iter().fold(0, |mut acc, table| {
+            acc += table.num_entities();
+            acc
+        });
+
+        Query::new(self.world.clone(), total_entities, associated_archetypes)
     }
 }
 
@@ -100,9 +110,10 @@ impl EntityBuilder {
 
         // Add archetype hash to all components' associated archetype lists
         for component_id in self.component_ids {
+            let component_hash = self.world.borrow_mut().get_component_hash(&[component_id]);
             self.world
                 .borrow_mut()
-                .add_associated_archetype(component_id, ent_archetype_hash);
+                .add_associated_archetype(component_hash, ent_archetype_hash);
         }
 
         self.entity
