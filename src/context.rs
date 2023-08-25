@@ -1,27 +1,19 @@
 use std::{
     cell::{RefCell, RefMut},
-    collections::hash_map::DefaultHasher,
     rc::Rc,
 };
 
-use crate::{
-    world::{EcsHasher, World},
-    Component, ComponentId, EcsResult, EntityId, Query, QueryParam,
-};
+use crate::{world::World, Component, ComponentId, EcsResult, EntityId, Query, QueryParam};
 
 #[derive(Clone)]
-pub struct Context<H: EcsHasher = DefaultHasher> {
+pub struct Context {
     world: Rc<RefCell<World>>,
-    hasher: H,
 }
 
-impl<H: EcsHasher> Context<H> {
+impl Context {
     /// Creates a new context.
     pub(crate) fn new(world: Rc<RefCell<World>>) -> Self {
-        Self {
-            world,
-            hasher: H::new(),
-        }
+        Self { world }
     }
 
     /// Creates an `EntityBuilder` which is used to spawn an entity.
@@ -52,14 +44,12 @@ impl<H: EcsHasher> Context<H> {
                     .iter()
                     .map(|h| {
                         world
-                            .archetype_map
                             .get_archetype_table_mut(*h)
                             .expect("Unable to get associated archetype table")
                     })
                     .collect::<Vec<_>>()
             } else {
                 vec![world
-                    .archetype_map
                     .get_archetype_table_mut(query_hash)
                     .expect("Unable to get associated archetype table")]
             };

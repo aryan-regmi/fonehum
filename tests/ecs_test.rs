@@ -56,11 +56,11 @@ fn query_system1(mut ctx: Context) -> EcsResult<()> {
 // Tests (T,U) queries (mut and ref variants)
 fn query_system2(mut ctx: Context) -> EcsResult<()> {
     let (health1, age1) = ctx.query::<(&Health, &Age)>().single();
-    assert_eq!(health1.0, 30);
+    assert_eq!(health1.0, 50);
     assert_eq!(age1.0, 100);
 
     let (health2, age2) = ctx.query::<(&mut Health, &Age)>().single();
-    assert_eq!(health2.0, 30);
+    assert_eq!(health2.0, 50);
     health2.0 = 40;
     assert_eq!(age2.0, 100);
 
@@ -85,6 +85,6 @@ fn can_query_entities() -> EcsResult<()> {
             Ok(())
         })
         .add_system(query_system1)
-        // .add_system(query_system2)
+        .add_system(query_system2)
         .run()
 }

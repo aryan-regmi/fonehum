@@ -76,22 +76,23 @@ impl<'a, 'b, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
 
     fn next(&mut self) -> Option<Self::Item> {
         use crate::query_params::QueryParamType::*;
+
+        // Get archetype table for the current entity
+        if self.archetype_info.entity_idx
+            >= self.query.archetype_tables[self.archetype_info.table_idx].num_entities()
+        {
+            self.archetype_info.table_idx += 1;
+            self.archetype_info.entity_idx = 0;
+
+            if self.archetype_info.table_idx >= self.query.num_entities {
+                return None;
+            }
+        }
+        let archetype_table = &mut self.query.archetype_tables[self.archetype_info.table_idx];
+
         match Params::param_type() {
             Type1 => {
-                if self.archetype_info.entity_idx
-                    >= self.query.archetype_tables[self.archetype_info.table_idx].num_entities()
-                {
-                    self.archetype_info.table_idx += 1;
-                    self.archetype_info.entity_idx = 0;
-
-                    if self.archetype_info.table_idx >= self.query.num_entities {
-                        return None;
-                    }
-                }
-                let archetype_table =
-                    &mut self.query.archetype_tables[self.archetype_info.table_idx];
-
-                // Get the component value for the current curr_entity
+                // Get component value for the current entity
                 let component = archetype_table
                     .get_component::<Params::Type1>(self.archetype_info.entity_idx)
                     .ok()??;
@@ -110,24 +111,10 @@ impl<'a, 'b, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                 ))
             }
             Type2 => {
-                if self.archetype_info.entity_idx
-                    >= self.query.archetype_tables[self.archetype_info.table_idx].num_entities()
-                {
-                    self.archetype_info.table_idx += 1;
-                    self.archetype_info.entity_idx = 0;
-
-                    if self.archetype_info.table_idx >= self.query.num_entities {
-                        return None;
-                    }
-                }
-                let archetype_table =
-                    &mut self.query.archetype_tables[self.archetype_info.table_idx];
-
-                // Get the component value for the current curr_entity
+                // Get the component values for the current entity
                 let component1 = archetype_table
                     .get_component::<Params::Type1>(self.archetype_info.entity_idx)
                     .ok()??;
-                // dbg!(&archetype_table);
                 let component2 = archetype_table
                     .get_component::<Params::Type2>(self.archetype_info.entity_idx)
                     .ok()??;

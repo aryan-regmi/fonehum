@@ -53,14 +53,14 @@ pub(crate) struct World<H: EcsHasher = DefaultHasher> {
     num_entities: usize,
 
     /// Maps archetype hashes to their corresponding tables.
-    pub(crate) archetype_map: ArchetypeMap,
+    archetype_map: ArchetypeMap,
 
     /// Maps entities to their positions in an archetype table.
     entity_map: Vec<StorageLocation>,
 
     /// Maps components/groups of components to hashes of all archetype that have that
     /// component/subgroup.
-    pub(crate) associated_archetype_map: HashMap<ComponentHash, Vec<ArchetypeHash>>,
+    associated_archetype_map: HashMap<ComponentHash, Vec<ArchetypeHash>>,
 
     /// The hasher used to calculate archetype hashes.
     hasher: Rc<RefCell<H>>,
@@ -404,6 +404,13 @@ impl<H: EcsHasher> World<H> {
 
     pub(crate) fn get_entity_archetype_hash(&self, entity: EntityId) -> ArchetypeHash {
         self.entity_map[entity].hash
+    }
+
+    pub(crate) fn get_archetype_table_mut<'a>(
+        &self,
+        hash: ArchetypeHash,
+    ) -> Option<&'a mut Box<ArchetypeTable>> {
+        self.archetype_map.get_archetype_table_mut(hash)
     }
 }
 
