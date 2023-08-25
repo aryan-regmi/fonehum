@@ -57,7 +57,7 @@ pub(crate) struct World<H: EcsHasher = DefaultHasher> {
     entity_map: Vec<StorageLocation>,
 
     /// Maps component types/ids to hashes of all archetype that have that component.
-    associated_archetype_map: HashMap<ComponentId, Vec<ArchetypeHash>>,
+    pub(crate) associated_archetype_map: HashMap<ComponentId, Vec<ArchetypeHash>>,
 
     /// The hasher used to calculate archetype hashes.
     hasher: Rc<RefCell<H>>,
@@ -197,16 +197,6 @@ impl<H: EcsHasher> World<H> {
             return Ok(());
         }
 
-        // Add component to associated_archetype_map if it's a new type
-        let associated_archetypes = self.associated_archetype_map.get_mut(&component_id);
-        if let Some(associated_archetypes) = associated_archetypes {
-            associated_archetypes.push(new_hash);
-        } else {
-            let associated_archetypes = vec![new_hash];
-            self.associated_archetype_map
-                .insert(component_id, associated_archetypes);
-        }
-
         // If archetype table (with new hash) doesn't exist, create a new table and move the entity
         // into it
         {
@@ -249,6 +239,9 @@ impl<H: EcsHasher> World<H> {
                 hash: new_hash,
                 row: 0,
             };
+
+            // Update associated archetypes
+            self.add_associated_archetype(component_id, new_hash);
         }
 
         Ok(())
@@ -403,6 +396,27 @@ impl<H: EcsHasher> World<H> {
         } else {
             HashSet::new()
         }
+    }
+
+    pub(crate) fn add_associated_archetype(
+        &mut self,
+        component_id: ComponentId,
+        archetype_hash: ArchetypeHash,
+    ) {
+        if let Some(associated_archetypes) = self.associated_archetype_map.get_mut(&component_id) {
+            if *associated_archetypes.last().unwrap() != archetype_hash {
+                associated_archetypes.push(archetype_hash);
+                return;
+            }
+        }
+
+        let associated_archetypes = vec![archetype_hash];
+        self.associated_archetype_map
+            .insert(component_id, associated_archetypes);
+    }
+
+    pub(crate) fn get_entity_archetype_hash(&self, entity: EntityId) -> ArchetypeHash {
+        self.entity_map[entity].hash
     }
 }
 

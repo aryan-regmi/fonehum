@@ -9,12 +9,7 @@ mod query_params;
 mod storage;
 mod world;
 
-pub use {
-    context::Context,
-    ecs::Ecs,
-    query::{Query, QueryBuilder},
-    query_params::QueryParam,
-};
+pub use {context::Context, ecs::Ecs, query::Query, query_params::QueryParam};
 
 /// An entity in the ECS.
 ///

@@ -1,84 +1,19 @@
-use std::{cell::RefCell, collections::HashSet, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, mem::transmute_copy, rc::Rc};
 
-use crate::{
-    query_params::QueryParam, storage::archetype_table::ArchetypeTable, world::World, Component,
-    ComponentId,
-};
+use crate::{query_params::QueryParam, storage::archetype_table::ArchetypeTable, world::World};
 
-/// Builds a query  by specifying the components to query for.
-pub struct QueryBuilder {
-    world: Rc<RefCell<World>>,
-    ref_types: HashSet<ComponentId>,
-    mut_types: HashSet<ComponentId>,
-}
-
-impl QueryBuilder {
-    /// Creates a new query builder.
-    pub(crate) fn new(world: Rc<RefCell<World>>) -> Self {
-        Self {
-            world,
-            ref_types: HashSet::new(),
-            mut_types: HashSet::new(),
-        }
-    }
-
-    /// Adds query for immutable reference to `T`.
-    pub fn with<T: Component>(mut self) -> Self {
-        self.ref_types.insert(ComponentId::of::<T>());
-        self
-    }
-
-    /// Adds query for mutable reference to `T`.
-    pub fn with_mut<T: Component>(mut self) -> Self {
-        self.mut_types.insert(ComponentId::of::<T>());
-        self
-    }
-
-    /// Builds, runs, and returns the query.
-    pub fn build<'a, Params: QueryParam>(self) -> Query<'a, Params> {
-        // Combine all query types (ref and mut)
-        let query_types: HashSet<&ComponentId> =
-            { self.ref_types.union(&self.mut_types).collect() };
-
-        // Grab all associated archetype tables for each queried type and keep only unique
-        // tables
-        let mut unique_associated_archetypes = HashSet::with_capacity(query_types.len());
-        for component_id in query_types {
-            let mut world = self.world.borrow_mut();
-            let associated_archetypes = world.get_associated_archetypes_mut(*component_id);
-            unique_associated_archetypes = unique_associated_archetypes
-                .union(&associated_archetypes)
-                .map(|a| unsafe {
-                    let a = (a as *const &mut ArchetypeTable) as *mut *mut ArchetypeTable;
-                    (*a).as_mut()
-                        .expect("Unable to get unique set of associated archetype tables")
-                })
-                .collect::<HashSet<&mut ArchetypeTable>>();
-        }
-
-        Query {
-            world: self.world,
-            num_entities: 0,
-            // ref_types: self.ref_types,
-            // mut_types: self.mut_types,
-            archetype_tables: unique_associated_archetypes,
-            _marker: PhantomData,
-        }
-    }
-}
-
-pub struct Query<'a, Params: QueryParam> {
+pub struct Query<'a, Params: QueryParam<'a>> {
     world: Rc<RefCell<World>>,
     num_entities: usize,
-    archetype_tables: HashSet<&'a mut ArchetypeTable>,
+    archetype_tables: Vec<&'a mut ArchetypeTable>,
     _marker: PhantomData<Params>,
 }
 
-impl<'a, Params: QueryParam> Query<'a, Params> {
+impl<'a, Params: QueryParam<'a>> Query<'a, Params> {
     pub(crate) fn new(
         world: Rc<RefCell<World>>,
         num_entities: usize,
-        archetype_tables: HashSet<&'a mut ArchetypeTable>,
+        archetype_tables: Vec<&'a mut ArchetypeTable>,
     ) -> Self {
         Self {
             world,
@@ -89,8 +24,8 @@ impl<'a, Params: QueryParam> Query<'a, Params> {
     }
 }
 
-impl<'a, Params: QueryParam> IntoIterator for Query<'a, Params> {
-    type Item = Params;
+impl<'a, Params: QueryParam<'a>> IntoIterator for Query<'a, Params> {
+    type Item = Params::ResultType;
 
     type IntoIter = QueryIter<'a, Params>;
 
@@ -98,24 +33,83 @@ impl<'a, Params: QueryParam> IntoIterator for Query<'a, Params> {
         Self::IntoIter {
             query: self,
             current_entity: 0,
+            archetype_info: ArchetypeInfo {
+                table_idx: 0,
+                entity_idx: 0,
+            },
         }
     }
 }
 
-pub struct QueryIter<'a, Params: QueryParam> {
-    query: Query<'a, Params>,
-    current_entity: usize,
+#[derive(Debug)]
+struct ArchetypeInfo {
+    table_idx: usize,
+    entity_idx: usize,
 }
 
-impl<'a, Params: QueryParam> Iterator for QueryIter<'a, Params> {
-    type Item = Params;
+pub struct QueryIter<'a, Params: QueryParam<'a>> {
+    query: Query<'a, Params>,
+    current_entity: usize,
+    archetype_info: ArchetypeInfo,
+}
+
+impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
+    type Item = Params::ResultType;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_entity >= self.query.num_entities {
             return None;
         }
 
-        self.current_entity += 1;
-        todo!()
+        // TODO: Do this in the query and save as vector
+        // let tst = self.query.archetype_tables.drain().collect::<Vec<_>>();
+
+        use crate::query_params::QueryParamType::*;
+        match Params::param_type() {
+            Type1 => {
+                if self.archetype_info.entity_idx
+                    >= self.query.archetype_tables[self.archetype_info.table_idx].num_entities()
+                {
+                    self.archetype_info.table_idx += 1;
+                    self.archetype_info.entity_idx = 0;
+
+                    if self.archetype_info.table_idx >= self.query.num_entities {
+                        return None;
+                    }
+                }
+                let archetype_table =
+                    &mut self.query.archetype_tables[self.archetype_info.table_idx];
+
+                // Get the component value for the current curr_entity
+                let component = archetype_table
+                    .get_component::<Params::Type1>(self.archetype_info.entity_idx)
+                    .ok()??;
+                self.archetype_info.entity_idx += 1;
+
+                let component = unsafe {
+                    ((component as *const Params::Type1) as *mut Params::Type1)
+                        .as_mut()
+                        .expect("Unable to copy component value")
+                };
+
+                Some(Params::result_from_components(
+                    component,
+                    Params::empty_component2(),
+                ))
+            }
+            Type2 => todo!(),
+            Type3 => {
+                dbg!("Type3");
+                todo!()
+            }
+            Type4 => todo!(),
+            Type5 => todo!(),
+            Type6 => todo!(),
+        }
+
+        // let tst = tst[0].get_component::<Params::Base>(0);
+        //
+        // self.current_entity += 1;
+        // todo!()
     }
 }

@@ -24,9 +24,9 @@ impl Context {
     }
 
     /// Creates a `QueryBuilder` which is used to build a query.
-    pub fn query<Params: QueryParam>(&mut self) -> Query<Params> {
+    pub fn query<'a, Params: QueryParam<'a>>(&'a mut self) -> Query<Params> {
         // Combine all query types (ref and mut)
-        let query_types: HashSet<ComponentId> = Params::typeids();
+        let query_types: Vec<ComponentId> = Params::typeids();
 
         // Grab all associated archetype tables for each queried type and keep only unique
         // tables
@@ -49,7 +49,7 @@ impl Context {
         Query::new(
             self.world.clone(),
             total_entities,
-            unique_associated_archetypes,
+            unique_associated_archetypes.drain().collect(),
         )
     }
 }
@@ -58,33 +58,44 @@ impl Context {
 pub struct EntityBuilder {
     entity: EntityId,
     world: Rc<RefCell<World>>,
+    component_ids: Vec<ComponentId>,
 }
 
 impl EntityBuilder {
     /// Creates a new entity builder.
     fn new(world: Rc<RefCell<World>>, entity: EntityId) -> Self {
-        Self { entity, world }
+        Self {
+            entity,
+            world,
+            component_ids: vec![],
+        }
     }
 
     /// Adds a component to the entity being built.
-    pub fn with<T: Component>(self, component: T) -> EcsResult<Self> {
+    pub fn with<T: Component>(mut self, component: T) -> EcsResult<Self> {
         self.world
             .borrow_mut()
             .add_component_to_entity(self.entity, component)?;
+
+        self.component_ids.push(ComponentId::of::<T>());
+
         Ok(self)
     }
 
     /// Spawns the entity and returns its ID.
     ///
-    /// ## Note
-    /// This doesn't actually "build" anything, as each call to `with` will immediately update
-    /// the entity with the specified components and each call to `spawn` will immediately
-    /// create an entity; this function simply returns the ID of the entity that was
-    /// spawned with `Context::spawn`.
     ///
-    /// A consequence of this behavior is that this function can be completely omitted as long as
-    /// the ID of the spawned entity is not required.
+    /// This also updates the associated archetypes table for each of the components added.
     pub fn build(self) -> EntityId {
+        let ent_archetype_hash = self.world.borrow().get_entity_archetype_hash(self.entity);
+
+        // Add archetype hash to all components' associated archetype lists
+        for component_id in self.component_ids {
+            self.world
+                .borrow_mut()
+                .add_associated_archetype(component_id, ent_archetype_hash);
+        }
+
         self.entity
     }
 }
