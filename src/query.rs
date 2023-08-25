@@ -22,6 +22,14 @@ impl<'a, Params: QueryParam<'a>> Query<'a, Params> {
             _marker: PhantomData,
         }
     }
+
+    pub fn single(self) -> Params::ResultType {
+        if self.num_entities != 1 {
+            panic!("Called `single` on query with more (or less) than 1 item")
+        }
+
+        self.into_iter().next().unwrap()
+    }
 }
 
 impl<'a, Params: QueryParam<'a>> IntoIterator for Query<'a, Params> {

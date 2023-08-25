@@ -22,6 +22,9 @@ fn can_spawn_entities() -> EcsResult<()> {
         .run()
 }
 
+// Tests (&T,) queries
+fn query_system1() {}
+
 #[test]
 fn can_query_entities() -> EcsResult<()> {
     Ecs::new()
@@ -33,7 +36,7 @@ fn can_query_entities() -> EcsResult<()> {
         .add_system(|mut ctx: Context| {
             let health_query: Query<(&Health,)> = ctx.query();
             for (i, health) in health_query.into_iter().enumerate() {
-                if i == 1 {
+                if i == 0 {
                     assert_eq!(health.0 .0, 100);
                 } else {
                     assert_eq!(health.0 .0, 20);
