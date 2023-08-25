@@ -106,9 +106,38 @@ impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                     Params::empty_component2(),
                 ))
             }
-            Type2 => todo!(),
+            Type2 => {
+                if self.archetype_info.entity_idx
+                    >= self.query.archetype_tables[self.archetype_info.table_idx].num_entities()
+                {
+                    self.archetype_info.table_idx += 1;
+                    self.archetype_info.entity_idx = 0;
+
+                    if self.archetype_info.table_idx >= self.query.num_entities {
+                        return None;
+                    }
+                }
+                let archetype_table =
+                    &mut self.query.archetype_tables[self.archetype_info.table_idx];
+
+                // Get the component value for the current curr_entity
+                let component = archetype_table
+                    .get_component::<Params::Type1>(self.archetype_info.entity_idx)
+                    .ok()??;
+                self.archetype_info.entity_idx += 1;
+
+                let component = unsafe {
+                    ((component as *const Params::Type1) as *mut Params::Type1)
+                        .as_mut()
+                        .expect("Unable to copy component value")
+                };
+
+                Some(Params::result_from_components(
+                    component,
+                    Params::empty_component2(),
+                ))
+            }
             Type3 => {
-                dbg!("Type3");
                 todo!()
             }
             Type4 => todo!(),

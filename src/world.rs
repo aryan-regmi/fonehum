@@ -467,10 +467,6 @@ mod tests {
         world.add_component_to_entity(e3, Health(10))?;
         world.add_component_to_entity(e3, Health(40))?;
 
-        // dbg!(world.num_entities);
-        // dbg!(world.archetype_map.archetype_tables());
-        // dbg!(world.entity_map);
-
         assert_eq!(world.num_entities, 4);
         assert_eq!(world.entity_map[e0].row, 0);
         assert_eq!(world.entity_map[e1].row, 0);

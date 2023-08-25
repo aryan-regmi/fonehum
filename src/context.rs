@@ -42,9 +42,15 @@ impl Context {
                 })
                 .collect::<HashSet<&mut ArchetypeTable>>();
         }
-        let unique_associated_archetypes = unique_associated_archetypes.drain().collect::<Vec<_>>();
+        let mut unique_associated_archetypes =
+            unique_associated_archetypes.drain().collect::<Vec<_>>();
         let total_entities = if unique_associated_archetypes.len() != 0 {
-            unique_associated_archetypes[0].num_entities()
+            unique_associated_archetypes
+                .iter_mut()
+                .fold(0, |mut acc, at| {
+                    acc += at.num_entities();
+                    acc
+                })
         } else {
             0
         };

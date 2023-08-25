@@ -22,7 +22,7 @@ fn can_spawn_entities() -> EcsResult<()> {
         .run()
 }
 
-// Tests (&T,) queries
+// Tests (T,) queries (mut and ref variants)
 fn query_system1(mut ctx: Context) -> EcsResult<()> {
     let health_query1: Query<(&Health,)> = ctx.query();
     assert_eq!(health_query1.num_entities(), 2);
@@ -53,8 +53,28 @@ fn query_system1(mut ctx: Context) -> EcsResult<()> {
     Ok(())
 }
 
-// Tests (&T, &U) queries
-fn query_system2() {}
+// Tests (T,U) queries (mut and ref variants)
+fn query_system2(mut ctx: Context) -> EcsResult<()> {
+    let (health1, age1) = ctx.query::<(&Health, &Age)>().single();
+    assert_eq!(health1.0, 30);
+    assert_eq!(age1.0, 100);
+
+    let (health2, age2) = ctx.query::<(&mut Health, &Age)>().single();
+    assert_eq!(health2.0, 30);
+    health2.0 = 40;
+    assert_eq!(age2.0, 100);
+
+    let (health3, age3) = ctx.query::<(&Health, &mut Age)>().single();
+    assert_eq!(health3.0, 40);
+    assert_eq!(age3.0, 100);
+    age3.0 = 45;
+
+    let (health4, age4) = ctx.query::<(&mut Health, &mut Age)>().single();
+    assert_eq!(health4.0, 40);
+    assert_eq!(age4.0, 45);
+
+    Ok(())
+}
 
 #[test]
 fn can_query_entities() -> EcsResult<()> {
@@ -64,16 +84,6 @@ fn can_query_entities() -> EcsResult<()> {
             ctx.spawn()?.with(Health(30))?.build();
             Ok(())
         })
-        .add_system(|mut ctx: Context| {
-            let health_query: Query<(&Health,)> = ctx.query();
-
-            let (h, a): (&Health, &Age) = ctx.query::<(&Health, &Age)>().single();
-            assert_eq!(h.0, 100);
-            assert_eq!(a.0, 100);
-            // for (h, a) in query {
-            // }
-
-            Ok(())
-        })
+        .add_system(query_system1)
         .run()
 }
