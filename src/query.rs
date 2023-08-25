@@ -30,6 +30,10 @@ impl<'a, Params: QueryParam<'a>> Query<'a, Params> {
 
         self.into_iter().next().unwrap()
     }
+
+    pub fn num_entities(&self) -> usize {
+        self.num_entities
+    }
 }
 
 impl<'a, Params: QueryParam<'a>> IntoIterator for Query<'a, Params> {
@@ -68,9 +72,6 @@ impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
         if self.current_entity >= self.query.num_entities {
             return None;
         }
-
-        // TODO: Do this in the query and save as vector
-        // let tst = self.query.archetype_tables.drain().collect::<Vec<_>>();
 
         use crate::query_params::QueryParamType::*;
         match Params::param_type() {

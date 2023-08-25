@@ -37,10 +37,10 @@ pub trait QueryParam<'a> {
 
 // TODO: Write a macro to expand this!!
 
-impl<'a, P: Component> QueryParam<'a> for (&P,) {
+impl<'a, P: Component> QueryParam<'a> for &P {
     type Type1 = P;
     type Type2 = ();
-    type ResultType = (&'a P,);
+    type ResultType = &'a P;
 
     fn param_type() -> QueryParamType {
         QueryParamType::Type1
@@ -53,7 +53,55 @@ impl<'a, P: Component> QueryParam<'a> for (&P,) {
     }
 
     fn result_from_components(c1: &'a mut Self::Type1, _: &mut ()) -> Self::ResultType {
-        (c1,)
+        c1
+    }
+
+    fn empty_component2() -> &'static mut Self::Type2 {
+        unsafe { Box::into_raw(Box::new(())).as_mut().unwrap() }
+    }
+}
+
+impl<'a, P: Component> QueryParam<'a> for &mut P {
+    type Type1 = P;
+    type Type2 = ();
+    type ResultType = &'a mut P;
+
+    fn param_type() -> QueryParamType {
+        QueryParamType::Type1
+    }
+
+    fn typeids() -> Vec<ComponentId> {
+        let mut types = Vec::new();
+        types.push(ComponentId::of::<P>());
+        types
+    }
+
+    fn result_from_components(c1: &'a mut Self::Type1, _: &mut ()) -> Self::ResultType {
+        c1
+    }
+
+    fn empty_component2() -> &'static mut Self::Type2 {
+        unsafe { Box::into_raw(Box::new(())).as_mut().unwrap() }
+    }
+}
+
+impl<'a, P: Component> QueryParam<'a> for (&P,) {
+    type Type1 = P;
+    type Type2 = ();
+    type ResultType = &'a P;
+
+    fn param_type() -> QueryParamType {
+        QueryParamType::Type1
+    }
+
+    fn typeids() -> Vec<ComponentId> {
+        let mut types = Vec::new();
+        types.push(ComponentId::of::<P>());
+        types
+    }
+
+    fn result_from_components(c1: &'a mut Self::Type1, _: &mut ()) -> Self::ResultType {
+        c1
     }
 
     fn empty_component2() -> &'static mut Self::Type2 {
@@ -64,7 +112,7 @@ impl<'a, P: Component> QueryParam<'a> for (&P,) {
 impl<'a, P: Component> QueryParam<'a> for (&mut P,) {
     type Type1 = P;
     type Type2 = ();
-    type ResultType = (&'a mut Self::Type1,);
+    type ResultType = &'a mut Self::Type1;
 
     fn param_type() -> QueryParamType {
         QueryParamType::Type2
@@ -77,7 +125,7 @@ impl<'a, P: Component> QueryParam<'a> for (&mut P,) {
     }
 
     fn result_from_components(c1: &'a mut Self::Type1, _: &'a mut Self::Type2) -> Self::ResultType {
-        (c1,)
+        c1
     }
 
     fn empty_component2() -> &'static mut Self::Type2 {
