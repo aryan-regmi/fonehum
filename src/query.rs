@@ -101,6 +101,7 @@ impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                         .expect("Unable to copy component value")
                 };
 
+                self.current_entity += 1;
                 Some(Params::result_from_components(
                     component,
                     Params::empty_component2(),
@@ -121,33 +122,29 @@ impl<'a, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                     &mut self.query.archetype_tables[self.archetype_info.table_idx];
 
                 // Get the component value for the current curr_entity
-                let component = archetype_table
+                let component1 = archetype_table
                     .get_component::<Params::Type1>(self.archetype_info.entity_idx)
+                    .ok()??;
+                let component2 = archetype_table
+                    .get_component::<Params::Type2>(self.archetype_info.entity_idx)
                     .ok()??;
                 self.archetype_info.entity_idx += 1;
 
-                let component = unsafe {
-                    ((component as *const Params::Type1) as *mut Params::Type1)
-                        .as_mut()
-                        .expect("Unable to copy component value")
+                let (component1, component2) = unsafe {
+                    (
+                        ((component1 as *const Params::Type1) as *mut Params::Type1)
+                            .as_mut()
+                            .expect("Unable to copy component value"),
+                        ((component2 as *const Params::Type2) as *mut Params::Type2)
+                            .as_mut()
+                            .expect("Unable to copy component value"),
+                    )
                 };
 
-                Some(Params::result_from_components(
-                    component,
-                    Params::empty_component2(),
-                ))
-            }
-            Type3 => {
-                todo!()
-            }
-            Type4 => todo!(),
-            Type5 => todo!(),
-            Type6 => todo!(),
-        }
+                self.current_entity += 1;
 
-        // let tst = tst[0].get_component::<Params::Base>(0);
-        //
-        // self.current_entity += 1;
-        // todo!()
+                Some(Params::result_from_components(component1, component2))
+            }
+        }
     }
 }

@@ -3,18 +3,10 @@
 use crate::{Component, ComponentId};
 
 pub enum QueryParamType {
-    /// (ref,)
+    /// Single component
     Type1,
-    /// (mut,)
+    /// Double component
     Type2,
-    /// (ref, ref)
-    Type3,
-    /// (ref, mut)
-    Type4,
-    /// (mut, ref)
-    Type5,
-    /// (mut, mut)
-    Type6,
 }
 
 impl Component for () {}
@@ -115,7 +107,7 @@ impl<'a, P: Component> QueryParam<'a> for (&mut P,) {
     type ResultType = &'a mut Self::Type1;
 
     fn param_type() -> QueryParamType {
-        QueryParamType::Type2
+        QueryParamType::Type1
     }
 
     fn typeids() -> Vec<ComponentId> {
@@ -139,7 +131,7 @@ impl<'a, P1: Component, P2: Component> QueryParam<'a> for (&P1, &P2) {
     type ResultType = (&'a Self::Type1, &'a Self::Type2);
 
     fn param_type() -> QueryParamType {
-        QueryParamType::Type3
+        QueryParamType::Type2
     }
 
     fn typeids() -> Vec<ComponentId> {
@@ -169,7 +161,7 @@ impl<'a, P1: Component, P2: Component> QueryParam<'a> for (&P1, &mut P2) {
     type ResultType = (&'a Self::Type1, &'a mut Self::Type2);
 
     fn param_type() -> QueryParamType {
-        QueryParamType::Type4
+        QueryParamType::Type2
     }
 
     fn typeids() -> Vec<ComponentId> {
@@ -199,7 +191,7 @@ impl<'a, P1: Component, P2: Component> QueryParam<'a> for (&mut P1, &P2) {
     type ResultType = (&'a mut Self::Type1, &'a Self::Type2);
 
     fn param_type() -> QueryParamType {
-        QueryParamType::Type5
+        QueryParamType::Type2
     }
 
     fn typeids() -> Vec<ComponentId> {
@@ -229,7 +221,7 @@ impl<'a, P1: Component, P2: Component> QueryParam<'a> for (&mut P1, &mut P2) {
     type ResultType = (&'a mut Self::Type1, &'a mut Self::Type2);
 
     fn param_type() -> QueryParamType {
-        QueryParamType::Type6
+        QueryParamType::Type2
     }
 
     fn typeids() -> Vec<ComponentId> {
