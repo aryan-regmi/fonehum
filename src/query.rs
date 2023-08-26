@@ -90,9 +90,9 @@ impl<'a, 'b, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
         }
         let archetype_table = &mut self.query.archetype_tables[self.archetype_info.table_idx];
 
+        // Get the component values for the current entity
         match Params::param_type() {
             Type1 => {
-                // Get component value for the current entity
                 let component = archetype_table
                     .get_component::<Params::Type1>(self.archetype_info.entity_idx)
                     .ok()??;
@@ -104,14 +104,13 @@ impl<'a, 'b, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                         .expect("Unable to copy component value")
                 };
 
-                // self.current_entity += 1;
                 Some(Params::result_from_components(
                     component,
                     Params::empty_component2(),
+                    Params::empty_component3(),
                 ))
             }
             Type2 => {
-                // Get the component values for the current entity
                 let component1 = archetype_table
                     .get_component::<Params::Type1>(self.archetype_info.entity_idx)
                     .ok()??;
@@ -131,9 +130,41 @@ impl<'a, 'b, Params: QueryParam<'a>> Iterator for QueryIter<'a, Params> {
                     )
                 };
 
-                // self.current_entity += 1;
+                Some(Params::result_from_components(
+                    component1,
+                    component2,
+                    Params::empty_component3(),
+                ))
+            }
+            Type3 => {
+                let component1 = archetype_table
+                    .get_component::<Params::Type1>(self.archetype_info.entity_idx)
+                    .ok()??;
+                let component2 = archetype_table
+                    .get_component::<Params::Type2>(self.archetype_info.entity_idx)
+                    .ok()??;
+                let component3 = archetype_table
+                    .get_component::<Params::Type3>(self.archetype_info.entity_idx)
+                    .ok()??;
+                self.archetype_info.entity_idx += 1;
 
-                Some(Params::result_from_components(component1, component2))
+                let (component1, component2, component3) = unsafe {
+                    (
+                        ((component1 as *const Params::Type1) as *mut Params::Type1)
+                            .as_mut()
+                            .expect("Unable to copy component value"),
+                        ((component2 as *const Params::Type2) as *mut Params::Type2)
+                            .as_mut()
+                            .expect("Unable to copy component value"),
+                        ((component3 as *const Params::Type3) as *mut Params::Type3)
+                            .as_mut()
+                            .expect("Unable to copy component value"),
+                    )
+                };
+
+                Some(Params::result_from_components(
+                    component1, component2, component3,
+                ))
             }
         }
     }
