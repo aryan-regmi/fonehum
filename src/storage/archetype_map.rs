@@ -18,26 +18,21 @@ impl ArchetypeMap {
     }
 
     /// Gets an immutable reference to the archetype table with the specified hash.
-    pub(crate) fn get_archetype_table(&self, hash: ArchetypeHash) -> Option<&Box<ArchetypeTable>> {
-        self.0.get(&hash)
+    pub(crate) fn get_archetype_table(&self, hash: ArchetypeHash) -> Option<&ArchetypeTable> {
+        self.0.get(&hash).map(|a| &**a)
     }
 
     /// Gets a mutable reference to the archetype table with the specified hash.
     pub(crate) fn get_archetype_table_mut<'a>(
         &self,
         hash: ArchetypeHash,
-    ) -> Option<&'a mut Box<ArchetypeTable>> {
+    ) -> Option<&'a mut ArchetypeTable> {
         let this = unsafe { (self as *const ArchetypeMap).cast_mut().as_mut()? };
-        this.0.get_mut(&hash)
+        this.0.get_mut(&hash).map(|a| &mut **a)
     }
 
     /// Checks if an archetype table with the specified hash exists in the archetype map.
     pub(crate) fn table_exists(&self, hash: ArchetypeHash) -> bool {
         self.0.contains_key(&hash)
-    }
-
-    /// Returns a vector of the archetype tables in the archetype map.
-    pub(crate) fn archetype_tables(&self) -> Vec<&Box<ArchetypeTable>> {
-        self.0.values().collect()
     }
 }

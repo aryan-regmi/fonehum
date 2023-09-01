@@ -5,7 +5,7 @@ use crate::{query_params::QueryParam, storage::archetype_table::ArchetypeTable, 
 pub struct Query<'a, Params: QueryParam<'a>> {
     world: Rc<RefCell<World>>,
     num_entities: usize,
-    archetype_tables: Vec<&'a mut Box<ArchetypeTable>>,
+    archetype_tables: Vec<&'a mut ArchetypeTable>,
     _marker: PhantomData<Params>,
 }
 
@@ -14,7 +14,7 @@ impl<'a, Params: QueryParam<'a>> Query<'a, Params> {
     pub(crate) fn new(
         world: Rc<RefCell<World>>,
         num_entities: usize,
-        archetype_tables: Vec<&'a mut Box<ArchetypeTable>>,
+        archetype_tables: Vec<&'a mut ArchetypeTable>,
     ) -> Self {
         Self {
             world,

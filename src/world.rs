@@ -105,13 +105,13 @@ impl<H: EcsHasher> World<H> {
     }
 
     /// Gets an immutable reference to the archetype table associated with the specified entity.
-    fn archetype_table_by_entity(&self, entity: EntityId) -> Option<&Box<ArchetypeTable>> {
+    fn archetype_table_by_entity(&self, entity: EntityId) -> Option<&ArchetypeTable> {
         let ent_archetype_hash = self.entity_map[entity].hash;
         self.archetype_map.get_archetype_table(ent_archetype_hash)
     }
 
     /// Gets a mutable reference to the archetype table associated with the specified entity.
-    fn archetype_table_by_entity_mut(&self, entity: EntityId) -> Option<&mut Box<ArchetypeTable>> {
+    fn archetype_table_by_entity_mut(&self, entity: EntityId) -> Option<&mut ArchetypeTable> {
         let ent_archetype_hash = self.entity_map[entity].hash;
         self.archetype_map
             .get_archetype_table_mut(ent_archetype_hash)
@@ -409,7 +409,7 @@ impl<H: EcsHasher> World<H> {
     pub(crate) fn get_archetype_table_mut<'a>(
         &self,
         hash: ArchetypeHash,
-    ) -> Option<&'a mut Box<ArchetypeTable>> {
+    ) -> Option<&'a mut ArchetypeTable> {
         self.archetype_map.get_archetype_table_mut(hash)
     }
 }
